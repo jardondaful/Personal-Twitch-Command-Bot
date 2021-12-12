@@ -32,10 +32,22 @@ class Bot:
                             'addcmd': self.add_template_command,'editcmd': self.edit_template_command,
                             'delcmd': self.delete_template_command,'cmds': self.list_commands,}
 
+
   #connects bot to my Twitch channel
   def init(self):
     self.read_state()
     self.connect()
+
+
+  #returns false if key is in self.state_schema and true if otherwise
+  def ensure_state_schema(self):
+    is_dirty = False
+    for key in self.state_schema:
+      if key not in self.state:
+        is_dirty = True
+        self.state[key] = self.state_schema[key]
+    return is_dirty
+
 
   #reads what is in the state.json file
   def read_state(self):
@@ -45,29 +57,24 @@ class Bot:
     if is_dirty:
       self.write_state()
 
+
   #writes into the state.json file
   def write_state(self):
     with open(self.state_filename, 'w') as file:
       json.dump(self.state, file)
 
 
-  def ensure_state_schema(self):
-    is_dirty = False
-    for key in self.state_schema:
-      if key not in self.state:
-        is_dirty = True
-        self.state[key] = self.state_schema[key]
-    return is_dirty
-
   #sends a private message to a specific viewer
   def send_privmsg(self, channel, text):
     self.send_command(f'PRIVMSG #{channel} :{text}')
+
 
   #sends commands to Twitch client
   def send_command(self, command):
     if 'PASS' not in command:
       print(f' < {command}')
     self.irc.send((command + '\r\n').encode())
+
 
   #connects my Twitch channel to irc
   def connect(self):
@@ -80,6 +87,7 @@ class Bot:
       self.send_privmsg(channel, 'Hello there!')
     self.loop_for_messages()
 
+
   #extracts the usename from a chat message that contains a command
   def get_user_from_prefix(self, prefix):
     domain = prefix.split('!')[0]
@@ -89,6 +97,7 @@ class Bot:
       return domain
     return None
     
+
   #split message given by viewer into components and classifies them by username, commands, etc.
   def parse_message(self, received_msg):
     parts = received_msg.split(' ')
@@ -136,6 +145,7 @@ class Bot:
 
     return message
 
+
   #handles the case in which a viewer types an invalid command into chat
   def handle_template_command(self, message, text_command, template):
     try:
@@ -148,21 +158,25 @@ class Bot:
       print('Error while handling template command.', message, template)
       print(e)
 
+
   #send the current date as a private message to a viewer that send the "!date" command through chat
   def reply_with_date(self, message):
     formatted_date = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
     text = f'Here is the date {message.user}: {formatted_date}.'
     self.send_privmsg(message.channel, text)
 
+
   #sends "Hello (user), great ping! Here is your PONG!" as a private message to a viewer that sends the "!ping" command through chat
   def reply_to_ping(self, message):
     text = f'Hello {message.user}, great ping! Here is your PONG!'
     self.send_privmsg(message.channel, text)
 
+
   #sends a random integer as a private message to a viewer that sends the "!randint" command through chat
   def reply_with_randint(self, message):
     text = str(random.randint(0, 1000))
     self.send_privmsg(message.channel, text)
+
 
   #allows me to add more commands into the Twitch bot for it to carry out
   def add_template_command(self, message, force=False):
@@ -184,9 +198,11 @@ class Bot:
       text = f"@{message.user} The command {command_name} added!"
       self.send_privmsg(message.channel, text)
 
+
   #allows me to edit preexisting commands
   def edit_template_command(self, message):
     return self.add_template_command(message, force=True)
+
 
   #allows me to delete preexisting or newly created commands when typing "!delcmd" into chat
   def delete_template_command(self, message):
@@ -209,6 +225,7 @@ class Bot:
     text = f'@{message.user} Commands deleted: {" ".join(command_names)}'
     self.send_privmsg(message.channel, text)
 
+
   #lists all the commands the bot has when the viewer types the "!cmds"
   def list_commands(self, message):
     template_cmd_names = list(self.state['template_commands'].keys())
@@ -217,12 +234,14 @@ class Bot:
     text = f'@{message.user} ' + ' '.join(all_cmd_names)
     self.send_privmsg(message.channel, text)
 
+
   #increments the doggo count by 1 when a viewer types the "!doggo" command
   def increment_doggo(self, message):
     self.state['doggo_counter'] += 1
     text = f'Doggos seen: {self.state["doggo_counter"]}'
     self.send_privmsg(message.channel, text)
     self.write_state()
+
 
   #takes in messages and reads through them for commands to carry out
   def handle_message(self, received_msg):
@@ -240,12 +259,14 @@ class Bot:
         elif message.text_command in self.state['template_commands']:
           self.handle_template_command(message, message.text_command, self.state['template_commands'][message.text_command],)
 
+
   #reads through a maximum of 2048 bytes (2 MB) worth of messages in one go
   def loop_for_messages(self):
     while True:
       received_msgs = self.irc.recv(2048).decode()
       for received_msg in received_msgs.split('\r\n'):
         self.handle_message(received_msg)
+
 
 #driver function that carries out everything listed in code
 def main(): 
