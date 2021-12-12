@@ -16,7 +16,7 @@ def remove_prefix(string, prefix):
 
 
 class Bot:
-  #tells the bot which channel to go to and which commands to carry out in chat
+  #tells the bot to go to my channel and which commands it can carry out in chat (which are !randint, !doggo, !addcmd, !delcmd, !cmds)
   def __init__(self):
     self.irc_server = 'irc.twitch.tv'
     self.irc_port = 6667
@@ -32,12 +32,12 @@ class Bot:
                             'addcmd': self.add_template_command,'editcmd': self.edit_template_command,
                             'delcmd': self.delete_template_command,'cmds': self.list_commands,}
 
-
+  #connects bot to my Twitch channel
   def init(self):
     self.read_state()
     self.connect()
 
-
+  #reads what is in the state.json file
   def read_state(self):
     with open(self.state_filename, 'r') as file:
       self.state = json.load(file)
@@ -45,7 +45,7 @@ class Bot:
     if is_dirty:
       self.write_state()
 
-
+  #writes into the state.json file
   def write_state(self):
     with open(self.state_filename, 'w') as file:
       json.dump(self.state, file)
@@ -188,7 +188,7 @@ class Bot:
   def edit_template_command(self, message):
     return self.add_template_command(message, force=True)
 
-  #allows me to delete preexisting or newly created commands
+  #allows me to delete preexisting or newly created commands when typing "!delcmd" into chat
   def delete_template_command(self, message):
     if len(message.text_args) < 1:
       text = f"@{message.user} Usage: !delcmd <name>"
@@ -209,7 +209,7 @@ class Bot:
     text = f'@{message.user} Commands deleted: {" ".join(command_names)}'
     self.send_privmsg(message.channel, text)
 
-  #lists all the commands the bot has when the viewer types the "!list_commands"
+  #lists all the commands the bot has when the viewer types the "!cmds"
   def list_commands(self, message):
     template_cmd_names = list(self.state['template_commands'].keys())
     custom_cmd_names = list(self.custom_commands.keys())
@@ -217,14 +217,14 @@ class Bot:
     text = f'@{message.user} ' + ' '.join(all_cmd_names)
     self.send_privmsg(message.channel, text)
 
-  #increments the doggo count by 1 when a viewer types the "!increment_doggo" command
+  #increments the doggo count by 1 when a viewer types the "!doggo" command
   def increment_doggo(self, message):
     self.state['doggo_counter'] += 1
     text = f'Doggos seen: {self.state["doggo_counter"]}'
     self.send_privmsg(message.channel, text)
     self.write_state()
 
-
+  #takes in messages and reads through them for commands to carry out
   def handle_message(self, received_msg):
       if len(received_msg) == 0:
         return
@@ -240,13 +240,14 @@ class Bot:
         elif message.text_command in self.state['template_commands']:
           self.handle_template_command(message, message.text_command, self.state['template_commands'][message.text_command],)
 
-
+  #reads through a maximum of 2048 bytes (2 MB) worth of messages in one go
   def loop_for_messages(self):
     while True:
       received_msgs = self.irc.recv(2048).decode()
       for received_msg in received_msgs.split('\r\n'):
         self.handle_message(received_msg)
 
+#driver function that carries out everything listed in code
 def main(): 
   bot = Bot() 
   bot.connect()
