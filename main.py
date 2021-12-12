@@ -2,18 +2,21 @@ import socket
 import datetime
 import random
 import json
+import config
 from collections import namedtuple
 
-import config
-
+#defines the structure of a message sent in chat
 Message = namedtuple('Message','prefix user channel irc_command irc_args text text_command text_args',)
 
+#removes given prefix from string
 def remove_prefix(string, prefix):
   if not string.startswith(prefix):
     return string
   return string[len(prefix):]
 
+
 class Bot:
+  #tells the bot which channel to go to and which commands to carry out in chat
   def __init__(self):
     self.irc_server = 'irc.twitch.tv'
     self.irc_port = 6667
@@ -23,11 +26,11 @@ class Bot:
     self.command_prefix = '!'
     self.state = {}
     self.state_filename = 'state.json'
-    self.state_schema = {
-            'template_commands': {},
-            'doggo_counter': 0,
-        }
-    self.custom_commands = {'date': self.reply_with_date,'ping': self.reply_to_ping,'randint': self.reply_with_randint,'doggo': self.increment_doggo,'addcmd': self.add_template_command,'editcmd': self.edit_template_command,'delcmd': self.delete_template_command,'cmds': self.list_commands,}
+    self.state_schema = {'template_commands': {},'doggo_counter': 0,}
+    self.custom_commands = {'date': self.reply_with_date,'ping': self.reply_to_ping,
+                            'randint': self.reply_with_randint,'doggo': self.increment_doggo,
+                            'addcmd': self.add_template_command,'editcmd': self.edit_template_command,
+                            'delcmd': self.delete_template_command,'cmds': self.list_commands,}
 
 
   def init(self):
@@ -56,17 +59,17 @@ class Bot:
         self.state[key] = self.state_schema[key]
     return is_dirty
 
-
+  #sends a private message to a specific viewer
   def send_privmsg(self, channel, text):
     self.send_command(f'PRIVMSG #{channel} :{text}')
 
-
+  #sends commands to Twitch client
   def send_command(self, command):
     if 'PASS' not in command:
       print(f' < {command}')
     self.irc.send((command + '\r\n').encode())
 
-
+  #connects my Twitch channel to irc
   def connect(self):
     self.irc = socket.socket()
     self.irc.connect((self.irc_server, self.irc_port))
@@ -77,7 +80,7 @@ class Bot:
       self.send_privmsg(channel, 'Hello there!')
     self.loop_for_messages()
 
-
+  #extracts the usename from a chat message that contains a command
   def get_user_from_prefix(self, prefix):
     domain = prefix.split('!')[0]
     if domain.endswith('.tmi.twitch.tv'):
@@ -86,7 +89,7 @@ class Bot:
       return domain
     return None
     
-
+  #split message given by viewer into components and classifies them by username, commands, etc.
   def parse_message(self, received_msg):
     parts = received_msg.split(' ')
 
@@ -133,7 +136,7 @@ class Bot:
 
     return message
 
-
+  #handles the case in which a viewer types an invalid command into chat
   def handle_template_command(self, message, text_command, template):
     try:
       text = template.format(**{'message': message})
@@ -145,23 +148,23 @@ class Bot:
       print('Error while handling template command.', message, template)
       print(e)
 
-
+  #send the current date as a private message to a viewer that send the "!date" command through chat
   def reply_with_date(self, message):
     formatted_date = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
     text = f'Here is the date {message.user}: {formatted_date}.'
     self.send_privmsg(message.channel, text)
 
-
+  #sends "Hello (user), great ping! Here is your PONG!" as a private message to a viewer that sends the "!ping" command through chat
   def reply_to_ping(self, message):
-    text = f'Hello {message.user}, great ping! I just gave back a PONG for ya'
+    text = f'Hello {message.user}, great ping! Here is your PONG!'
     self.send_privmsg(message.channel, text)
 
-
+  #sends a random integer as a private message to a viewer that sends the "!randint" command through chat
   def reply_with_randint(self, message):
     text = str(random.randint(0, 1000))
     self.send_privmsg(message.channel, text)
 
-
+  #allows me to add more commands into the Twitch bot for it to carry out
   def add_template_command(self, message, force=False):
     if len(message.text_args) < 2:
       text = f"@{message.user} Usage: !addcmd <name> <template>"
@@ -181,11 +184,11 @@ class Bot:
       text = f"@{message.user} The command {command_name} added!"
       self.send_privmsg(message.channel, text)
 
-
+  #allows me to edit preexisting commands
   def edit_template_command(self, message):
     return self.add_template_command(message, force=True)
 
-
+  #allows me to delete preexisting or newly created commands
   def delete_template_command(self, message):
     if len(message.text_args) < 1:
       text = f"@{message.user} Usage: !delcmd <name>"
@@ -206,7 +209,7 @@ class Bot:
     text = f'@{message.user} Commands deleted: {" ".join(command_names)}'
     self.send_privmsg(message.channel, text)
 
-
+  #lists all the commands the bot has when the viewer types the "!list_commands"
   def list_commands(self, message):
     template_cmd_names = list(self.state['template_commands'].keys())
     custom_cmd_names = list(self.custom_commands.keys())
@@ -214,7 +217,7 @@ class Bot:
     text = f'@{message.user} ' + ' '.join(all_cmd_names)
     self.send_privmsg(message.channel, text)
 
-
+  #increments the doggo count by 1 when a viewer types the "!increment_doggo" command
   def increment_doggo(self, message):
     self.state['doggo_counter'] += 1
     text = f'Doggos seen: {self.state["doggo_counter"]}'
@@ -227,7 +230,6 @@ class Bot:
         return
 
       message = self.parse_message(received_msg)
-      # print(f'> {message}')
       print(f'> {received_msg}')
 
       if message.irc_command == 'PING':
